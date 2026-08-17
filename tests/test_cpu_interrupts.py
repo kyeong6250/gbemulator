@@ -42,9 +42,9 @@ def test_halted_cpu_wakes_on_pending_interrupt_even_if_ime_false(cpu, mmu):
     mmu.mem[cpu.pc] = 0x00  # Place NOP at PC so execution is deterministic
     cpu.step()
     assert cpu.halted is False
-    # PC should not jump to interrupt vector (0x0048 is JOYPAD) since IME is false
+    # PC should not jump to interrupt vector (0x0060 is JOYPAD) since IME is false
     # Instead, it should have executed the instruction at PC, advancing by 1 (NOP)
-    assert cpu.pc != 0x0048
+    assert cpu.pc != 0x0060
     # IF bit for JOYPAD should still be set (interrupt not serviced, just halted cleared)
     assert mmu.read(0xFF0F) & interrupts.JOYPAD == interrupts.JOYPAD
 
