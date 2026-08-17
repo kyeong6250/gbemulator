@@ -38,7 +38,7 @@ def test_set_and_get_flag(cpu):
 
 
 def test_step_dispatches_to_execute(cpu, mmu):
-    mmu.mem[0x0100] = 0x00  # NOP, wired in Task 8 (misc control)
+    mmu.mem[0x0100] = 0x04  # INC B - not yet implemented
     with pytest.raises(NotImplementedError):
         cpu.step()
 

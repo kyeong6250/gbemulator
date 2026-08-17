@@ -159,8 +159,78 @@ class CPU:
         if opcode == 0xFA:
             self.a = self.mmu.read(self.fetch16())
             return 16
+        if opcode in (0x01, 0x11, 0x21, 0x31):
+            value = self.fetch16()
+            if opcode == 0x01: self.bc = value
+            elif opcode == 0x11: self.de = value
+            elif opcode == 0x21: self.hl = value
+            else: self.sp = value
+            return 12
+        if opcode == 0x08:
+            addr = self.fetch16()
+            self.mmu.write(addr, self.sp & 0xFF)
+            self.mmu.write((addr + 1) & 0xFFFF, (self.sp >> 8) & 0xFF)
+            return 20
+        if opcode == 0xF9:
+            self.sp = self.hl
+            return 8
+        if opcode == 0xF8:
+            offset = self._signed8(self.fetch8())
+            result = (self.sp + offset) & 0xFFFF
+            self.set_flag(self.ZERO_FLAG, False)
+            self.set_flag(self.SUB_FLAG, False)
+            self.set_flag(self.HALF_CARRY_FLAG, ((self.sp & 0xF) + (offset & 0xF)) > 0xF)
+            self.set_flag(self.CARRY_FLAG, ((self.sp & 0xFF) + (offset & 0xFF)) > 0xFF)
+            self.hl = result
+            return 12
+        if opcode in (0xC5, 0xD5, 0xE5, 0xF5):
+            value = {0xC5: self.bc, 0xD5: self.de, 0xE5: self.hl, 0xF5: self.af}[opcode]
+            self._push16(value)
+            return 16
+        if opcode in (0xC1, 0xD1, 0xE1, 0xF1):
+            value = self._pop16()
+            if opcode == 0xC1: self.bc = value
+            elif opcode == 0xD1: self.de = value
+            elif opcode == 0xE1: self.hl = value
+            else: self.af = value
+            return 12
+        if opcode == 0x00:
+            return 4
+        if opcode == 0x76:
+            self.halted = True
+            return 4
+        if opcode == 0x10:
+            self.fetch8()  # STOP's mandatory second byte, unused in our scope
+            return 4
+        if opcode == 0xF3:
+            self.ime = False
+            return 4
+        if opcode == 0xFB:
+            self.ime_pending = True
+            return 4
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
+    def _push16(self, value):
+        self.sp = (self.sp - 1) & 0xFFFF
+        self.mmu.write(self.sp, (value >> 8) & 0xFF)
+        self.sp = (self.sp - 1) & 0xFFFF
+        self.mmu.write(self.sp, value & 0xFF)
+
+    def _pop16(self):
+        lo = self.mmu.read(self.sp)
+        self.sp = (self.sp + 1) & 0xFFFF
+        hi = self.mmu.read(self.sp)
+        self.sp = (self.sp + 1) & 0xFFFF
+        return (hi << 8) | lo
+
+    def _signed8(self, value):
+        return value - 256 if value & 0x80 else value
+
     def step(self):
+        if self.halted:
+            return 4
+        if self.ime_pending:
+            self.ime = True
+            self.ime_pending = False
         opcode = self.fetch8()
         return self.execute(opcode)
