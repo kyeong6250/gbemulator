@@ -7,3 +7,4 @@ roms/*.gbc
 !roms/blargg/
 .pytest_cache/
 test-output.txt
+.claude/
