@@ -158,6 +158,29 @@ class CPU:
         elif op_idx == 6: self._alu_or(value)
         elif op_idx == 7: self._alu_sub(value, 0, store=False)  # CP
 
+    def _inc_r8(self, idx):
+        value = self._get_r8(idx)
+        result = (value + 1) & 0xFF
+        self.set_flag(self.HALF_CARRY_FLAG, (value & 0xF) == 0xF)
+        self.set_flag(self.ZERO_FLAG, result == 0)
+        self.set_flag(self.SUB_FLAG, False)
+        self._set_r8(idx, result)
+
+    def _dec_r8(self, idx):
+        value = self._get_r8(idx)
+        result = (value - 1) & 0xFF
+        self.set_flag(self.HALF_CARRY_FLAG, (value & 0xF) == 0x0)
+        self.set_flag(self.ZERO_FLAG, result == 0)
+        self.set_flag(self.SUB_FLAG, True)
+        self._set_r8(idx, result)
+
+    def _add_hl(self, value):
+        result = self.hl + value
+        self.set_flag(self.HALF_CARRY_FLAG, ((self.hl & 0xFFF) + (value & 0xFFF)) > 0xFFF)
+        self.set_flag(self.CARRY_FLAG, result > 0xFFFF)
+        self.set_flag(self.SUB_FLAG, False)
+        self.hl = result & 0xFFFF
+
     def execute(self, opcode):
         if 0x40 <= opcode <= 0x7F and opcode != 0x76:
             return self._ld_r_r(opcode)
@@ -266,6 +289,26 @@ class CPU:
         if opcode in (0xC6, 0xCE, 0xD6, 0xDE, 0xE6, 0xEE, 0xF6, 0xFE):
             op_idx = (opcode >> 3) & 0x07
             self._alu_dispatch(op_idx, self.fetch8())
+            return 8
+        if opcode in (0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C):
+            idx = (opcode >> 3) & 0x07
+            self._inc_r8(idx)
+            return 12 if idx == 6 else 4
+        if opcode in (0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D, 0x35, 0x3D):
+            idx = (opcode >> 3) & 0x07
+            self._dec_r8(idx)
+            return 12 if idx == 6 else 4
+        if opcode in (0x03, 0x13, 0x23, 0x33):
+            attr = {0x03: "bc", 0x13: "de", 0x23: "hl", 0x33: "sp"}[opcode]
+            setattr(self, attr, (getattr(self, attr) + 1) & 0xFFFF)
+            return 8
+        if opcode in (0x0B, 0x1B, 0x2B, 0x3B):
+            attr = {0x0B: "bc", 0x1B: "de", 0x2B: "hl", 0x3B: "sp"}[opcode]
+            setattr(self, attr, (getattr(self, attr) - 1) & 0xFFFF)
+            return 8
+        if opcode in (0x09, 0x19, 0x29, 0x39):
+            attr = {0x09: "bc", 0x19: "de", 0x29: "hl", 0x39: "sp"}[opcode]
+            self._add_hl(getattr(self, attr))
             return 8
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
