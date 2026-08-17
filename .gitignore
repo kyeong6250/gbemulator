@@ -8,3 +8,6 @@ roms/*.gbc
 .pytest_cache/
 test-output.txt
 .claude/
+build/
+dist/
+*.spec
