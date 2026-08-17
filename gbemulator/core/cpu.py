@@ -381,6 +381,60 @@ class CPU:
             self.set_flag(self.HALF_CARRY_FLAG, False)
             self.set_flag(self.CARRY_FLAG, not self.get_flag(self.CARRY_FLAG))
             return 4
+        if opcode == 0xC3:
+            self.pc = self.fetch16()
+            return 16
+        if opcode == 0xE9:
+            self.pc = self.hl
+            return 4
+        if opcode in (0xC2, 0xCA, 0xD2, 0xDA):
+            cc = (opcode >> 3) & 0x03
+            addr = self.fetch16()
+            if self._check_cc(cc):
+                self.pc = addr
+                return 16
+            return 12
+        if opcode == 0x18:
+            offset = self._signed8(self.fetch8())
+            self.pc = (self.pc + offset) & 0xFFFF
+            return 12
+        if opcode in (0x20, 0x28, 0x30, 0x38):
+            cc = (opcode >> 3) & 0x03
+            offset = self._signed8(self.fetch8())
+            if self._check_cc(cc):
+                self.pc = (self.pc + offset) & 0xFFFF
+                return 12
+            return 8
+        if opcode == 0xCD:
+            addr = self.fetch16()
+            self._push16(self.pc)
+            self.pc = addr
+            return 24
+        if opcode in (0xC4, 0xCC, 0xD4, 0xDC):
+            cc = (opcode >> 3) & 0x03
+            addr = self.fetch16()
+            if self._check_cc(cc):
+                self._push16(self.pc)
+                self.pc = addr
+                return 24
+            return 12
+        if opcode == 0xC9:
+            self.pc = self._pop16()
+            return 16
+        if opcode in (0xC0, 0xC8, 0xD0, 0xD8):
+            cc = (opcode >> 3) & 0x03
+            if self._check_cc(cc):
+                self.pc = self._pop16()
+                return 20
+            return 8
+        if opcode == 0xD9:
+            self.pc = self._pop16()
+            self.ime = True
+            return 16
+        if opcode in (0xC7, 0xCF, 0xD7, 0xDF, 0xE7, 0xEF, 0xF7, 0xFF):
+            self._push16(self.pc)
+            self.pc = opcode & 0x38
+            return 16
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
     def _push16(self, value):
@@ -398,6 +452,12 @@ class CPU:
 
     def _signed8(self, value):
         return value - 256 if value & 0x80 else value
+
+    def _check_cc(self, cc):
+        if cc == 0: return self.get_flag(self.ZERO_FLAG) == 0
+        if cc == 1: return self.get_flag(self.ZERO_FLAG) == 1
+        if cc == 2: return self.get_flag(self.CARRY_FLAG) == 0
+        return self.get_flag(self.CARRY_FLAG) == 1
 
     def step(self):
         if self.halted:
