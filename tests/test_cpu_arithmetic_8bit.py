@@ -20,6 +20,8 @@ def test_adc_includes_carry_in(cpu, mmu):
     mmu.mem[0x0100] = 0x88  # ADC A,B
     cpu.step()
     assert cpu.a == 0x03
+    assert cpu.get_flag(cpu.HALF_CARRY_FLAG) == 0
+    assert cpu.get_flag(cpu.CARRY_FLAG) == 0
 
 
 def test_sub_sets_carry_when_borrow(cpu, mmu):
@@ -39,6 +41,36 @@ def test_sbc_includes_carry_in(cpu, mmu):
     mmu.mem[0x0100] = 0x98  # SBC A,B
     cpu.step()
     assert cpu.a == 0x03
+    assert cpu.get_flag(cpu.HALF_CARRY_FLAG) == 0
+    assert cpu.get_flag(cpu.CARRY_FLAG) == 0
+
+
+def test_adc_carry_in_sets_half_carry(cpu, mmu):
+    """ADC with carry-in causes extra half-carry that wouldn't occur without it.
+    A=0x0E, B=0x01, carry_in=1 → sum=0x0E+0x01+1=0x10 → H=1
+    Without carry-in: 0x0E+0x01=0x0F would NOT set H."""
+    cpu.a = 0x0E
+    cpu.b = 0x01
+    cpu.set_flag(cpu.CARRY_FLAG, True)
+    mmu.mem[0x0100] = 0x88  # ADC A,B
+    cpu.step()
+    assert cpu.a == 0x10
+    assert cpu.get_flag(cpu.HALF_CARRY_FLAG) == 1
+    assert cpu.get_flag(cpu.CARRY_FLAG) == 0
+
+
+def test_sbc_carry_in_sets_half_carry_and_carry(cpu, mmu):
+    """SBC with carry-in causes extra half-carry and borrow.
+    A=0x00, B=0x00, carry_in=1 → result=0x00-0x00-1=0xFF → H=1, C=1
+    Without carry-in: 0x00-0x00=0x00 would have H=0, C=0."""
+    cpu.a = 0x00
+    cpu.b = 0x00
+    cpu.set_flag(cpu.CARRY_FLAG, True)
+    mmu.mem[0x0100] = 0x98  # SBC A,B
+    cpu.step()
+    assert cpu.a == 0xFF
+    assert cpu.get_flag(cpu.HALF_CARRY_FLAG) == 1
+    assert cpu.get_flag(cpu.CARRY_FLAG) == 1
 
 
 def test_and_sets_half_carry_clears_carry(cpu, mmu):
@@ -99,3 +131,23 @@ def test_immediate_arithmetic(cpu, mmu, opcode, a, operand, expected):
     mmu.mem[0x0101] = operand
     cpu.step()
     assert cpu.a == expected
+
+
+@pytest.mark.parametrize("opcode,a,operand,expected", [
+    (0xCE, 0x01, 0x01, 0x02),  # ADC A,d8 (no carry set)
+    (0xDE, 0x05, 0x02, 0x03),  # SBC A,d8 (no carry set)
+    (0xEE, 0xFF, 0x0F, 0xF0),  # XOR A,d8
+    (0xFE, 0x10, 0x10, 0x10),  # CP A,d8 (A unchanged)
+])
+def test_immediate_arithmetic_extended(cpu, mmu, opcode, a, operand, expected):
+    cpu.a = a
+    # Ensure CARRY_FLAG is not set for ADC/SBC tests
+    if opcode in (0xCE, 0xDE):
+        cpu.set_flag(cpu.CARRY_FLAG, False)
+    mmu.mem[0x0100] = opcode
+    mmu.mem[0x0101] = operand
+    cpu.step()
+    assert cpu.a == expected
+    # CP (0xFE) should set Z flag when A == operand
+    if opcode == 0xFE:
+        assert cpu.get_flag(cpu.ZERO_FLAG) == 1
