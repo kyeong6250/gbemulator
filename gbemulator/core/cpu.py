@@ -76,7 +76,89 @@ class CPU:
         hi = self.fetch8()
         return (hi << 8) | lo
 
+    def _get_r8(self, idx):
+        if idx == 0: return self.b
+        if idx == 1: return self.c
+        if idx == 2: return self.d
+        if idx == 3: return self.e
+        if idx == 4: return self.h
+        if idx == 5: return self.l
+        if idx == 6: return self.mmu.read(self.hl)
+        return self.a  # idx == 7
+
+    def _set_r8(self, idx, value):
+        value &= 0xFF
+        if idx == 0: self.b = value
+        elif idx == 1: self.c = value
+        elif idx == 2: self.d = value
+        elif idx == 3: self.e = value
+        elif idx == 4: self.h = value
+        elif idx == 5: self.l = value
+        elif idx == 6: self.mmu.write(self.hl, value)
+        else: self.a = value
+
+    def _ld_r_r(self, opcode):
+        dst = (opcode >> 3) & 0x07
+        src = opcode & 0x07
+        self._set_r8(dst, self._get_r8(src))
+        return 8 if (dst == 6 or src == 6) else 4
+
+    def _ld_r_d8(self, opcode):
+        dst = (opcode >> 3) & 0x07
+        self._set_r8(dst, self.fetch8())
+        return 12 if dst == 6 else 8
+
     def execute(self, opcode):
+        if 0x40 <= opcode <= 0x7F and opcode != 0x76:
+            return self._ld_r_r(opcode)
+        if opcode in (0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E, 0x36, 0x3E):
+            return self._ld_r_d8(opcode)
+        if opcode == 0x0A:
+            self.a = self.mmu.read(self.bc)
+            return 8
+        if opcode == 0x1A:
+            self.a = self.mmu.read(self.de)
+            return 8
+        if opcode == 0x02:
+            self.mmu.write(self.bc, self.a)
+            return 8
+        if opcode == 0x12:
+            self.mmu.write(self.de, self.a)
+            return 8
+        if opcode == 0x2A:
+            self.a = self.mmu.read(self.hl)
+            self.hl = (self.hl + 1) & 0xFFFF
+            return 8
+        if opcode == 0x3A:
+            self.a = self.mmu.read(self.hl)
+            self.hl = (self.hl - 1) & 0xFFFF
+            return 8
+        if opcode == 0x22:
+            self.mmu.write(self.hl, self.a)
+            self.hl = (self.hl + 1) & 0xFFFF
+            return 8
+        if opcode == 0x32:
+            self.mmu.write(self.hl, self.a)
+            self.hl = (self.hl - 1) & 0xFFFF
+            return 8
+        if opcode == 0xE0:
+            self.mmu.write(0xFF00 + self.fetch8(), self.a)
+            return 12
+        if opcode == 0xF0:
+            self.a = self.mmu.read(0xFF00 + self.fetch8())
+            return 12
+        if opcode == 0xE2:
+            self.mmu.write(0xFF00 + self.c, self.a)
+            return 8
+        if opcode == 0xF2:
+            self.a = self.mmu.read(0xFF00 + self.c)
+            return 8
+        if opcode == 0xEA:
+            self.mmu.write(self.fetch16(), self.a)
+            return 16
+        if opcode == 0xFA:
+            self.a = self.mmu.read(self.fetch16())
+            return 16
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
     def step(self):
