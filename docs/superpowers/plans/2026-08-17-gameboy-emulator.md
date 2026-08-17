@@ -6,13 +6,13 @@
 
 **Architecture:** A pure emulation `core/` package (CPU, MMU, PPU, Timer, Joypad, Cartridge/MBC — zero I/O dependencies, fully unit-testable) driven by a `GameBoy` orchestrator whose `run_frame()` steps the CPU and advances PPU/Timer by elapsed cycles until a frame completes. A thin pygame `frontend/` displays frames and forwards key events. Instruction-stepped timing (not full T-state cycle accuracy).
 
-**Tech Stack:** Python 3.11+, pygame (window/input), numpy (framebuffer), pytest (testing).
+**Tech Stack:** Python 3.11+, pygame-ce (window/input — drop-in `import pygame` compatible fork, used because it ships prebuilt wheels for newer CPython faster than upstream pygame), numpy (framebuffer), pytest (testing).
 
 **Spec:** `docs/superpowers/specs/2026-08-17-gameboy-emulator-design.md`
 
 ## Global Constraints
 
-- Python 3.11+; dependencies limited to pygame, numpy, pytest (see spec Testing/Architecture sections).
+- Python 3.11+; dependencies limited to pygame-ce (imported as `pygame`), numpy, pytest (see spec Testing/Architecture sections).
 - Timing model is instruction-stepped: CPU `step()` returns T-cycles consumed; PPU/Timer advance by that count. No per-T-state interleaving.
 - Cartridge support limited to ROM-only (NoMBC) and MBC1 for v1 — other mappers raise a clear error at load time.
 - No sound/APU, no CGB features, no save states/debugger in v1 (spec "Out of scope").
@@ -48,7 +48,7 @@ touch gbemulator/__init__.py gbemulator/core/__init__.py gbemulator/frontend/__i
 - [ ] **Step 2: Write `requirements.txt`**
 
 ```
-pygame>=2.5
+pygame-ce>=2.5
 numpy>=1.26
 pytest>=8.0
 ```
