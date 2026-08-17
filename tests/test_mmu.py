@@ -53,3 +53,10 @@ def test_joypad_delegate_used_when_present():
     assert mmu.read(0xFF00) == 0x0F
     mmu.write(0xFF00, 0x20)
     assert mmu.joypad.written == 0x20
+
+
+def test_serial_output_captured_on_0x81_write():
+    mmu = MMU(FakeCartridge())
+    mmu.write(0xFF01, ord("A"))
+    mmu.write(0xFF02, 0x81)
+    assert mmu.serial_output == [ord("A")]

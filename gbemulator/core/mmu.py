@@ -4,6 +4,7 @@ class MMU:
         self.mem = bytearray(0x10000)
         self.joypad = None
         self.timer = None
+        self.serial_output = []
 
     def read(self, addr):
         addr &= 0xFFFF
@@ -24,5 +25,9 @@ class MMU:
             return
         if addr == 0xFF04 and self.timer is not None:
             self.timer.reset_div()
+            return
+        if addr == 0xFF02 and value == 0x81:
+            self.serial_output.append(self.mem[0xFF01])
+            self.mem[addr] = 0
             return
         self.mem[addr] = value
