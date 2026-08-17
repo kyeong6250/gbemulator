@@ -1,4 +1,7 @@
 # gbemulator/core/cpu.py
+from . import interrupts
+
+
 class CPU:
     ZERO_FLAG = 0x80
     SUB_FLAG = 0x40
@@ -540,9 +543,24 @@ class CPU:
 
     def step(self):
         if self.halted:
-            return 4
+            if interrupts.pending_vector(self.mmu) is not None:
+                self.halted = False
+            else:
+                return 4
+
         if self.ime_pending:
             self.ime = True
             self.ime_pending = False
+
+        if self.ime:
+            pending = interrupts.pending_vector(self.mmu)
+            if pending is not None:
+                bit, vector = pending
+                self.ime = False
+                interrupts.clear(self.mmu, bit)
+                self._push16(self.pc)
+                self.pc = vector
+                return 20
+
         opcode = self.fetch8()
         return self.execute(opcode)
