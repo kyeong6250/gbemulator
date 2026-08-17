@@ -181,6 +181,52 @@ class CPU:
         self.set_flag(self.SUB_FLAG, False)
         self.hl = result & 0xFFFF
 
+    def _rlca(self):
+        carry = (self.a >> 7) & 1
+        self.a = ((self.a << 1) | carry) & 0xFF
+        self.f = 0
+        self.set_flag(self.CARRY_FLAG, carry)
+
+    def _rrca(self):
+        carry = self.a & 1
+        self.a = ((self.a >> 1) | (carry << 7)) & 0xFF
+        self.f = 0
+        self.set_flag(self.CARRY_FLAG, carry)
+
+    def _rla(self):
+        old_carry = self.get_flag(self.CARRY_FLAG)
+        new_carry = (self.a >> 7) & 1
+        self.a = ((self.a << 1) | old_carry) & 0xFF
+        self.f = 0
+        self.set_flag(self.CARRY_FLAG, new_carry)
+
+    def _rra(self):
+        old_carry = self.get_flag(self.CARRY_FLAG)
+        new_carry = self.a & 1
+        self.a = ((self.a >> 1) | (old_carry << 7)) & 0xFF
+        self.f = 0
+        self.set_flag(self.CARRY_FLAG, new_carry)
+
+    def _daa(self):
+        adjust = 0
+        carry = self.get_flag(self.CARRY_FLAG)
+        if self.get_flag(self.SUB_FLAG):
+            if self.get_flag(self.HALF_CARRY_FLAG):
+                adjust += 0x06
+            if carry:
+                adjust += 0x60
+            self.a = (self.a - adjust) & 0xFF
+        else:
+            if self.get_flag(self.HALF_CARRY_FLAG) or (self.a & 0x0F) > 0x09:
+                adjust += 0x06
+            if carry or self.a > 0x99:
+                adjust += 0x60
+                carry = 1
+            self.a = (self.a + adjust) & 0xFF
+        self.set_flag(self.ZERO_FLAG, self.a == 0)
+        self.set_flag(self.HALF_CARRY_FLAG, False)
+        self.set_flag(self.CARRY_FLAG, carry)
+
     def execute(self, opcode):
         if 0x40 <= opcode <= 0x7F and opcode != 0x76:
             return self._ld_r_r(opcode)
@@ -310,6 +356,31 @@ class CPU:
             attr = {0x09: "bc", 0x19: "de", 0x29: "hl", 0x39: "sp"}[opcode]
             self._add_hl(getattr(self, attr))
             return 8
+        if opcode == 0x07:
+            self._rlca(); return 4
+        if opcode == 0x0F:
+            self._rrca(); return 4
+        if opcode == 0x17:
+            self._rla(); return 4
+        if opcode == 0x1F:
+            self._rra(); return 4
+        if opcode == 0x27:
+            self._daa(); return 4
+        if opcode == 0x2F:
+            self.a = (~self.a) & 0xFF
+            self.set_flag(self.SUB_FLAG, True)
+            self.set_flag(self.HALF_CARRY_FLAG, True)
+            return 4
+        if opcode == 0x37:
+            self.set_flag(self.SUB_FLAG, False)
+            self.set_flag(self.HALF_CARRY_FLAG, False)
+            self.set_flag(self.CARRY_FLAG, True)
+            return 4
+        if opcode == 0x3F:
+            self.set_flag(self.SUB_FLAG, False)
+            self.set_flag(self.HALF_CARRY_FLAG, False)
+            self.set_flag(self.CARRY_FLAG, not self.get_flag(self.CARRY_FLAG))
+            return 4
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
     def _push16(self, value):

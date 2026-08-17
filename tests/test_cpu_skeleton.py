@@ -38,7 +38,7 @@ def test_set_and_get_flag(cpu):
 
 
 def test_step_dispatches_to_execute(cpu, mmu):
-    mmu.mem[0x0100] = 0x07  # RLCA - not yet implemented
+    mmu.mem[0x0100] = 0xFD  # undefined opcode
     with pytest.raises(NotImplementedError):
         cpu.step()
 
