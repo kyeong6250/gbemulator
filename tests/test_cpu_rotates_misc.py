@@ -66,3 +66,33 @@ def test_daa_after_addition_adjusts_to_valid_bcd(cpu, mmu):
     cpu.step()
     cpu.step()
     assert cpu.a == 0x83
+
+
+def test_daa_after_subtraction_adjusts_result(cpu, mmu):
+    # Simulates 0x00 - 0x01 = 0xFF (borrow occurred)
+    # After SUB instruction: A=0xFF, N=1, H=1, C=1
+    # DAA should subtract 0x66: 0xFF - 0x66 = 0x99
+    cpu.a = 0xFF
+    cpu.set_flag(cpu.SUB_FLAG, True)
+    cpu.set_flag(cpu.HALF_CARRY_FLAG, True)
+    cpu.set_flag(cpu.CARRY_FLAG, True)
+    mmu.mem[0x0100] = 0x27  # DAA
+    cpu.step()
+    assert cpu.a == 0x99
+    assert cpu.get_flag(cpu.CARRY_FLAG) == 1  # Carry preserved from SUB
+    assert cpu.get_flag(cpu.HALF_CARRY_FLAG) == 0  # DAA always clears H
+
+
+def test_daa_a_alone_exceeds_0x99_addition_path(cpu, mmu):
+    # When A = 0xA5 and no half-carry/carry set, DAA should add 0x60
+    # because upper nibble (A) > 9. 0xA5 + 0x60 = 0x165, masked = 0x05
+    # Carry flag is set because result exceeded 0xFF
+    cpu.a = 0xA5
+    # Ensure all flags are clear (should be default)
+    cpu.set_flag(cpu.SUB_FLAG, False)
+    cpu.set_flag(cpu.HALF_CARRY_FLAG, False)
+    cpu.set_flag(cpu.CARRY_FLAG, False)
+    mmu.mem[0x0100] = 0x27  # DAA
+    cpu.step()
+    assert cpu.a == 0x05
+    assert cpu.get_flag(cpu.CARRY_FLAG) == 1  # Set because A alone exceeded 0x99
