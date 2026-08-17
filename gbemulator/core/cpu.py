@@ -227,6 +227,83 @@ class CPU:
         self.set_flag(self.HALF_CARRY_FLAG, False)
         self.set_flag(self.CARRY_FLAG, carry)
 
+    def _cb_rlc(self, value):
+        carry = (value >> 7) & 1
+        result = ((value << 1) | carry) & 0xFF
+        self.set_flag(self.CARRY_FLAG, carry)
+        return result
+
+    def _cb_rrc(self, value):
+        carry = value & 1
+        result = ((value >> 1) | (carry << 7)) & 0xFF
+        self.set_flag(self.CARRY_FLAG, carry)
+        return result
+
+    def _cb_rl(self, value):
+        old_carry = self.get_flag(self.CARRY_FLAG)
+        new_carry = (value >> 7) & 1
+        result = ((value << 1) | old_carry) & 0xFF
+        self.set_flag(self.CARRY_FLAG, new_carry)
+        return result
+
+    def _cb_rr(self, value):
+        old_carry = self.get_flag(self.CARRY_FLAG)
+        new_carry = value & 1
+        result = ((value >> 1) | (old_carry << 7)) & 0xFF
+        self.set_flag(self.CARRY_FLAG, new_carry)
+        return result
+
+    def _cb_sla(self, value):
+        carry = (value >> 7) & 1
+        result = (value << 1) & 0xFF
+        self.set_flag(self.CARRY_FLAG, carry)
+        return result
+
+    def _cb_sra(self, value):
+        carry = value & 1
+        result = ((value >> 1) | (value & 0x80)) & 0xFF
+        self.set_flag(self.CARRY_FLAG, carry)
+        return result
+
+    def _cb_swap(self, value):
+        result = ((value << 4) | (value >> 4)) & 0xFF
+        self.set_flag(self.CARRY_FLAG, False)
+        return result
+
+    def _cb_srl(self, value):
+        carry = value & 1
+        result = (value >> 1) & 0xFF
+        self.set_flag(self.CARRY_FLAG, carry)
+        return result
+
+    _CB_ROTATE_OPS = (_cb_rlc, _cb_rrc, _cb_rl, _cb_rr, _cb_sla, _cb_sra, _cb_swap, _cb_srl)
+
+    def _execute_cb(self, cb_opcode):
+        idx = cb_opcode & 0x07
+        op_group = (cb_opcode >> 6) & 0x03
+        bit = (cb_opcode >> 3) & 0x07
+        value = self._get_r8(idx)
+
+        if op_group == 0:  # rotates/shifts/swap
+            fn = self._CB_ROTATE_OPS[bit]
+            result = fn(self, value)
+            self.set_flag(self.ZERO_FLAG, result == 0)
+            self.set_flag(self.SUB_FLAG, False)
+            self.set_flag(self.HALF_CARRY_FLAG, False)
+            self._set_r8(idx, result)
+        elif op_group == 1:  # BIT
+            self.set_flag(self.ZERO_FLAG, (value & (1 << bit)) == 0)
+            self.set_flag(self.SUB_FLAG, False)
+            self.set_flag(self.HALF_CARRY_FLAG, True)
+        elif op_group == 2:  # RES
+            self._set_r8(idx, value & ~(1 << bit) & 0xFF)
+        else:  # SET
+            self._set_r8(idx, value | (1 << bit))
+
+        if op_group == 1:
+            return 12 if idx == 6 else 8
+        return 16 if idx == 6 else 8
+
     def execute(self, opcode):
         if 0x40 <= opcode <= 0x7F and opcode != 0x76:
             return self._ld_r_r(opcode)
@@ -435,6 +512,8 @@ class CPU:
             self._push16(self.pc)
             self.pc = opcode & 0x38
             return 16
+        if opcode == 0xCB:
+            return self._execute_cb(self.fetch8())
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
     def _push16(self, value):
