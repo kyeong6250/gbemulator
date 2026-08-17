@@ -254,6 +254,74 @@ def test_cb_set_multiple_registers(cpu, mmu, reg_idx, reg_name, bit_idx, initial
     assert getattr(cpu, reg_name) == expected_result
 
 
+@pytest.mark.parametrize("reg_idx,reg_name,initial_value,carry_in,expected_value,expected_carry,expected_zero", [
+    # RL B tests: carry enters bit 0, bit 7 exits to carry
+    (0, 'b', 0x80, 1, 0x01, 1, 0),  # bit 7 set, carry in → result 0x01, carry out
+    (0, 'b', 0x40, 0, 0x80, 0, 0),  # bit 7 clear, no carry in → result 0x80, no carry
+    (0, 'b', 0x00, 0, 0x00, 0, 1),  # all zeros → result 0x00, no carry, ZERO=1
+    # RL C tests
+    (1, 'c', 0x81, 1, 0x03, 1, 0),  # 0x81 with carry=1 → 0x03, carry=1
+    (1, 'c', 0x7F, 1, 0xFF, 0, 0),  # 0x7F with carry=1 → 0xFF, carry=0
+    # RL D tests
+    (2, 'd', 0xAA, 0, 0x54, 1, 0),  # 0xAA (10101010) with carry=0 → 0x54 (01010100), carry=1
+])
+def test_cb_rl_rotate_through_carry(cpu, mmu, reg_idx, reg_name, initial_value, carry_in, expected_value, expected_carry, expected_zero):
+    """Test RL (rotate left through carry) - CB opcodes 0x10-0x17"""
+    setattr(cpu, reg_name, initial_value)
+    cpu.set_flag(cpu.CARRY_FLAG, carry_in)
+    mmu.mem[0x0100] = 0xCB
+    mmu.mem[0x0101] = 0x10 | reg_idx  # RL r (0x10-0x17)
+    cycles = cpu.step()
+    assert getattr(cpu, reg_name) == expected_value
+    assert cpu.get_flag(cpu.CARRY_FLAG) == expected_carry
+    assert cpu.get_flag(cpu.ZERO_FLAG) == expected_zero
+    assert cycles == 8  # Register operand costs 8
+
+
+@pytest.mark.parametrize("reg_idx,reg_name,initial_value,carry_in,expected_value,expected_carry,expected_zero", [
+    # RR B tests: carry enters bit 7, bit 0 exits to carry
+    (0, 'b', 0x01, 1, 0x80, 1, 0),  # bit 0 set, carry in → result 0x80, carry out
+    (0, 'b', 0x02, 0, 0x01, 0, 0),  # bit 0 clear, no carry in → result 0x01, no carry
+    (0, 'b', 0x00, 0, 0x00, 0, 1),  # all zeros → result 0x00, no carry, ZERO=1
+    # RR C tests
+    (1, 'c', 0x80, 1, 0xC0, 0, 0),  # 0x80 with carry=1 → 0xC0, carry=0
+    (1, 'c', 0xFF, 0, 0x7F, 1, 0),  # 0xFF with carry=0 → 0x7F, carry=1
+    # RR D tests
+    (2, 'd', 0x55, 1, 0xAA, 1, 0),  # 0x55 (01010101) with carry=1 → 0xAA (10101010), carry=1
+])
+def test_cb_rr_rotate_through_carry(cpu, mmu, reg_idx, reg_name, initial_value, carry_in, expected_value, expected_carry, expected_zero):
+    """Test RR (rotate right through carry) - CB opcodes 0x18-0x1F"""
+    setattr(cpu, reg_name, initial_value)
+    cpu.set_flag(cpu.CARRY_FLAG, carry_in)
+    mmu.mem[0x0100] = 0xCB
+    mmu.mem[0x0101] = 0x18 | reg_idx  # RR r (0x18-0x1F)
+    cycles = cpu.step()
+    assert getattr(cpu, reg_name) == expected_value
+    assert cpu.get_flag(cpu.CARRY_FLAG) == expected_carry
+    assert cpu.get_flag(cpu.ZERO_FLAG) == expected_zero
+    assert cycles == 8  # Register operand costs 8
+
+
+@pytest.mark.parametrize("bit_idx,initial_value,carry_before,expected_carry", [
+    # Test that BIT leaves CARRY_FLAG untouched in both directions
+    (0, 0x01, 1, 1),   # carry=1 before, should be 1 after
+    (0, 0x01, 0, 0),   # carry=0 before, should be 0 after
+    (7, 0x80, 1, 1),   # carry=1 before, should be 1 after
+    (7, 0x80, 0, 0),   # carry=0 before, should be 0 after
+    (3, 0x08, 1, 1),   # carry=1 before, should be 1 after
+    (3, 0x08, 0, 0),   # carry=0 before, should be 0 after
+])
+def test_cb_bit_preserves_carry_flag(cpu, mmu, bit_idx, initial_value, carry_before, expected_carry):
+    """Test that BIT instruction leaves CARRY_FLAG untouched"""
+    cpu.h = initial_value
+    cpu.set_flag(cpu.CARRY_FLAG, carry_before)
+    mmu.mem[0x0100] = 0xCB
+    mmu.mem[0x0101] = 0x40 | (bit_idx << 3) | 4  # BIT bit,H
+    cpu.step()
+    # CARRY_FLAG should be unchanged
+    assert cpu.get_flag(cpu.CARRY_FLAG) == expected_carry
+
+
 @pytest.mark.parametrize("cycle_count,op_group,is_hl", [
     (16, 0, True),   # rotate/shift on (HL) = 16 cycles
     (8, 0, False),   # rotate/shift on register = 8 cycles
