@@ -149,6 +149,56 @@ class PPU:
             color_index = self._decode_tile_row(low_byte, high_byte)[pixel_col]
             self.framebuffer[self.ly][screen_x] = self._apply_palette(color_index, bgp)
 
+    def _render_sprites_row(self):
+        lcdc = self.mmu.mem[0xFF40]
+        if not (lcdc & 0x02):
+            return
+        sprite_height = 16 if (lcdc & 0x04) else 8
+
+        sprites_on_line = []
+        for slot in range(40):
+            base = 0xFE00 + slot * 4
+            sprite_y = self.mmu.mem[base] - 16
+            if sprite_y <= self.ly < sprite_y + sprite_height:
+                sprites_on_line.append(slot)
+            if len(sprites_on_line) == 10:
+                break
+
+        for slot in reversed(sprites_on_line):
+            base = 0xFE00 + slot * 4
+            sprite_y = self.mmu.mem[base] - 16
+            sprite_x = self.mmu.mem[base + 1] - 8
+            tile_index = self.mmu.mem[base + 2]
+            attrs = self.mmu.mem[base + 3]
+            y_flip = bool(attrs & 0x40)
+            x_flip = bool(attrs & 0x20)
+            palette_addr = 0xFF49 if (attrs & 0x10) else 0xFF48
+            palette = self.mmu.mem[palette_addr]
+
+            if sprite_height == 16:
+                tile_index &= 0xFE
+
+            row_in_sprite = self.ly - sprite_y
+            if y_flip:
+                row_in_sprite = sprite_height - 1 - row_in_sprite
+
+            tile_addr = 0x8000 + tile_index * 16 + row_in_sprite * 2
+            low_byte = self.mmu.mem[tile_addr]
+            high_byte = self.mmu.mem[tile_addr + 1]
+            pixels = self._decode_tile_row(low_byte, high_byte)
+            if x_flip:
+                pixels = pixels[::-1]
+
+            for col in range(8):
+                screen_x = sprite_x + col
+                if not (0 <= screen_x < 160):
+                    continue
+                color_index = pixels[col]
+                if color_index == 0:
+                    continue  # transparent
+                self.framebuffer[self.ly][screen_x] = self._apply_palette(color_index, palette)
+
     def _render_scanline(self):
         self._render_background_row()
         self._render_window_row()
+        self._render_sprites_row()
