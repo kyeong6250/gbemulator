@@ -108,6 +108,56 @@ class CPU:
         self._set_r8(dst, self.fetch8())
         return 12 if dst == 6 else 8
 
+    def _alu_add(self, value, carry_in=0):
+        result = self.a + value + carry_in
+        self.set_flag(self.HALF_CARRY_FLAG, ((self.a & 0xF) + (value & 0xF) + carry_in) > 0xF)
+        self.set_flag(self.CARRY_FLAG, result > 0xFF)
+        self.a = result & 0xFF
+        self.set_flag(self.ZERO_FLAG, self.a == 0)
+        self.set_flag(self.SUB_FLAG, False)
+
+    def _alu_sub(self, value, carry_in=0, store=True):
+        result = self.a - value - carry_in
+        self.set_flag(self.HALF_CARRY_FLAG, (self.a & 0xF) < ((value & 0xF) + carry_in))
+        self.set_flag(self.CARRY_FLAG, result < 0)
+        result &= 0xFF
+        self.set_flag(self.ZERO_FLAG, result == 0)
+        self.set_flag(self.SUB_FLAG, True)
+        if store:
+            self.a = result
+
+    def _alu_and(self, value):
+        self.a &= value
+        self.set_flag(self.ZERO_FLAG, self.a == 0)
+        self.set_flag(self.SUB_FLAG, False)
+        self.set_flag(self.HALF_CARRY_FLAG, True)
+        self.set_flag(self.CARRY_FLAG, False)
+
+    def _alu_or(self, value):
+        self.a |= value
+        self.set_flag(self.ZERO_FLAG, self.a == 0)
+        self.set_flag(self.SUB_FLAG, False)
+        self.set_flag(self.HALF_CARRY_FLAG, False)
+        self.set_flag(self.CARRY_FLAG, False)
+
+    def _alu_xor(self, value):
+        self.a ^= value
+        self.set_flag(self.ZERO_FLAG, self.a == 0)
+        self.set_flag(self.SUB_FLAG, False)
+        self.set_flag(self.HALF_CARRY_FLAG, False)
+        self.set_flag(self.CARRY_FLAG, False)
+
+    def _alu_dispatch(self, op_idx, value):
+        carry = self.get_flag(self.CARRY_FLAG)
+        if op_idx == 0: self._alu_add(value)
+        elif op_idx == 1: self._alu_add(value, carry)
+        elif op_idx == 2: self._alu_sub(value)
+        elif op_idx == 3: self._alu_sub(value, carry)
+        elif op_idx == 4: self._alu_and(value)
+        elif op_idx == 5: self._alu_xor(value)
+        elif op_idx == 6: self._alu_or(value)
+        elif op_idx == 7: self._alu_sub(value, 0, store=False)  # CP
+
     def execute(self, opcode):
         if 0x40 <= opcode <= 0x7F and opcode != 0x76:
             return self._ld_r_r(opcode)
@@ -208,6 +258,15 @@ class CPU:
         if opcode == 0xFB:
             self.ime_pending = True
             return 4
+        if 0x80 <= opcode <= 0xBF:
+            op_idx = (opcode >> 3) & 0x07
+            src = opcode & 0x07
+            self._alu_dispatch(op_idx, self._get_r8(src))
+            return 8 if src == 6 else 4
+        if opcode in (0xC6, 0xCE, 0xD6, 0xDE, 0xE6, 0xEE, 0xF6, 0xFE):
+            op_idx = (opcode >> 3) & 0x07
+            self._alu_dispatch(op_idx, self.fetch8())
+            return 8
         raise NotImplementedError(f"Opcode {opcode:#04x} not implemented at PC={self.pc - 1:#06x}")
 
     def _push16(self, value):
