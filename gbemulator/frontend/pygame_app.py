@@ -26,6 +26,27 @@ def framebuffer_to_rgb(framebuffer):
     return rgb.swapaxes(0, 1)  # pygame surfarray expects (width, height, 3)
 
 
+def _prompt_for_rom_via_dialog():
+    import tkinter
+    from tkinter import filedialog
+
+    root = tkinter.Tk()
+    root.withdraw()
+    path = filedialog.askopenfilename(
+        title="Choose a Game Boy ROM",
+        filetypes=[("Game Boy ROMs", "*.gb *.gbc"), ("All files", "*.*")],
+    )
+    root.destroy()
+    return path
+
+
+def resolve_rom_path(argv, prompt_fn=_prompt_for_rom_via_dialog):
+    if len(argv) > 1:
+        return argv[1]
+    path = prompt_fn()
+    return path or None
+
+
 def run(rom_path):
     gb = GameBoy(rom_path)
     pygame.init()
@@ -54,5 +75,28 @@ def run(rom_path):
     pygame.quit()
 
 
+def main():
+    rom_path = resolve_rom_path(sys.argv)
+    if rom_path is None:
+        return
+    try:
+        run(rom_path)
+    except Exception as exc:
+        import traceback
+
+        traceback.print_exc()
+        try:
+            import tkinter
+            from tkinter import messagebox
+
+            root = tkinter.Tk()
+            root.withdraw()
+            messagebox.showerror("gbemulator error", f"{exc}")
+            root.destroy()
+        except Exception:
+            pass
+        raise
+
+
 if __name__ == "__main__":
-    run(sys.argv[1])
+    main()
