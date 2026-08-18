@@ -6,9 +6,9 @@ A Game Boy (DMG) emulator written in Python. Inspired by [geaz/emu-gameboy](http
 
 Easiest way: double-click `gbemulator.bat`. It checks that Python's installed, grabs the dependencies the first time you run it, then launches the emulator. Skip the ROM argument (or just drag a ROM onto the file) and it'll open a picker for you. Controls are arrow keys for the D-pad, X for A, Z for B, Space for Select, Enter for Start.
 
-You'll need Python 3.11+ on your `PATH` (grab it from python.org, tick "Add python.exe to PATH" during setup) — otherwise nothing else to install. This runs through your normal Python interpreter, which Windows already trusts, so it sidesteps the SmartScreen/Smart App Control grief an unsigned .exe tends to run into.
+You'll need Python 3.11+ on your `PATH` (grab it from python.org, tick "Add python.exe to PATH" during setup) otherwise nothing else to install. This runs through your normal Python interpreter, which Windows already trusts, so it sidesteps the SmartScreen/Smart App Control grief an unsigned .exe tends to run into.
 
-If you'd rather skip Python entirely, there's a prebuilt `gbemulator.exe` on the [latest release](https://github.com/kyeong6250/gbemulator/releases) (or build your own, see below). It works the same way — double-click, pick a ROM if you didn't pass one. The catch: being an unsigned executable, Windows might flag it. SmartScreen may ask you to click through ("More info" → "Run anyway"), or Smart App Control might block it outright. If that happens, just use `gbemulator.bat` instead.
+If you'd rather skip Python entirely, there's a prebuilt `gbemulator.exe` on the [latest release](https://github.com/kyeong6250/gbemulator/releases) (or build your own, see below). It works the same way double-click, pick a ROM if you didn't pass one. The catch: being an unsigned executable, Windows might flag it. SmartScreen may ask you to click through ("More info" → "Run anyway"), or Smart App Control might block it outright. If that happens, just use `gbemulator.bat` instead.
 
 ## Running from source
 
