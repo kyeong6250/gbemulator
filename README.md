@@ -1,31 +1,16 @@
 # gbemulator
 
-A Game Boy (DMG) emulator written in Python, inspired by [geaz/emu-gameboy](https://github.com/geaz/emu-gameboy).
+A Game Boy (DMG) emulator written in Python. Inspired by [geaz/emu-gameboy](https://github.com/geaz/emu-gameboy), a C++ take on the same idea.
 
-## Run (Windows, easiest)
+## Running it on Windows
 
-Double-click `gbemulator.bat`. It checks for Python, installs dependencies on
-first run if needed, then launches the emulator. If you don't pass a ROM as
-an argument (or drag one onto the `.bat` file), it opens a file picker.
-Controls: arrow keys = D-pad, `X` = A, `Z` = B, `Space` = Select, `Enter` = Start.
+Easiest way: double-click `gbemulator.bat`. It checks that Python's installed, grabs the dependencies the first time you run it, then launches the emulator. Skip the ROM argument (or just drag a ROM onto the file) and it'll open a picker for you. Controls are arrow keys for the D-pad, X for A, Z for B, Space for Select, Enter for Start.
 
-Requires Python 3.11+ to be installed and on `PATH`
-(https://python.org — check "Add python.exe to PATH" during install), but
-otherwise needs no manual setup. Unlike `gbemulator.exe` below, it runs
-through the already-trusted `python.exe` interpreter, so it won't get flagged
-by Windows Smart App Control/SmartScreen the way an unsigned, freshly-built
-`.exe` can.
+You'll need Python 3.11+ on your `PATH` (grab it from python.org, tick "Add python.exe to PATH" during setup) — otherwise nothing else to install. This runs through your normal Python interpreter, which Windows already trusts, so it sidesteps the SmartScreen/Smart App Control grief an unsigned .exe tends to run into.
 
-## Run (prebuilt .exe, no Python required)
+If you'd rather skip Python entirely, there's a prebuilt `gbemulator.exe` on the [latest release](https://github.com/kyeong6250/gbemulator/releases) (or build your own, see below). It works the same way — double-click, pick a ROM if you didn't pass one. The catch: being an unsigned executable, Windows might flag it. SmartScreen may ask you to click through ("More info" → "Run anyway"), or Smart App Control might block it outright. If that happens, just use `gbemulator.bat` instead.
 
-Download `gbemulator.exe` from the
-[latest release](https://github.com/kyeong6250/gbemulator/releases), or build
-it yourself (see below), then double-click it. Same file-picker/controls
-behavior as above. Being an unsigned executable, Windows may flag it via
-SmartScreen ("More info" → "Run anyway") or block it outright under Smart App
-Control if that happens, use `gbemulator.bat` instead.
-
-## Run from source
+## Running from source
 
     pip install -r requirements.txt
     python main.py path/to/rom.gb
@@ -35,10 +20,8 @@ Control if that happens, use `gbemulator.bat` instead.
     pip install pyinstaller
     python -m PyInstaller --onefile --noconsole --name gbemulator main.py
 
-The result is `dist/gbemulator.exe` (self-contained, ~30MB, no Python install
-needed on the target machine). `build/`, `dist/`, and `*.spec` are gitignored
-build artifacts — rebuild locally rather than expecting them in the repo.
+That drops a self-contained `dist/gbemulator.exe` (~30MB) that doesn't need Python on whatever machine runs it. `build/`, `dist/`, and `*.spec` are all gitignored, so just rebuild locally rather than expecting them to already be there.
 
-## Test
+## Tests
 
     pytest
