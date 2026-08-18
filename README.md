@@ -23,7 +23,7 @@ Download `gbemulator.exe` from the
 it yourself (see below), then double-click it. Same file-picker/controls
 behavior as above. Being an unsigned executable, Windows may flag it via
 SmartScreen ("More info" → "Run anyway") or block it outright under Smart App
-Control — if that happens, use `gbemulator.bat` instead.
+Control if that happens, use `gbemulator.bat` instead.
 
 ## Run from source
 
