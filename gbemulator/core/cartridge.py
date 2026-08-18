@@ -17,6 +17,9 @@ class Cartridge:
         if self.cart_type in (0x01, 0x02, 0x03):
             from .mbc import MBC1
             return MBC1(self)
+        if self.cart_type in (0x0F, 0x10, 0x11, 0x12, 0x13):
+            from .mbc import MBC3
+            return MBC3(self)
         raise ValueError(f"Unsupported cartridge type: {self.cart_type:#04x}")
 
     def read(self, addr):

@@ -25,3 +25,11 @@ def test_parses_rom_and_ram_size():
 def test_unsupported_cart_type_raises():
     with pytest.raises(ValueError):
         Cartridge(_make_rom(cart_type=0x1B))  # MBC5, unsupported in v1
+
+
+@pytest.mark.parametrize("cart_type", [0x0F, 0x10, 0x11, 0x12, 0x13])
+def test_mbc3_cart_types_are_supported(cart_type):
+    from gbemulator.core.mbc import MBC3
+
+    cart = Cartridge(_make_rom(cart_type=cart_type))
+    assert isinstance(cart.mbc, MBC3)
